@@ -198,6 +198,9 @@ class SpeakReq(BaseModel):
 def speak(req: SpeakReq):
     clean = re.sub(r"\[R\d+\]", "", req.text)
     clean = re.sub(r"[*#`>]", "", clean).strip()
+    months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    clean = re.sub(r"(\d{4})-(\d{2})-(\d{2})", lambda m: f"{months[int(m.group(2)) - 1]} {int(m.group(3))}, {m.group(1)}", clean)
+    clean = re.sub(r"\n+", ". ", clean).replace("..", ".")
     speech.speak_live(clean[:600], "english")
     return {"ok": True}
 

@@ -79,7 +79,16 @@ async def main(out: Path, countdown: int):
         await page.click("#demo")
         await page.wait_for_function("document.querySelectorAll('.finding').length >= 2", timeout=240000)
         mark("findings")
-        await page.wait_for_timeout(3500)
+        await page.wait_for_timeout(1500)
+        # quick preview of each document
+        mark("previews")
+        for i in range(4):
+            await page.locator("button.doc").nth(i).click()
+            await page.wait_for_timeout(1500)
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(350)
+        mark("previews_end")
+        await page.wait_for_timeout(800)
 
         await page.locator(".finding").nth(1).click()
         mark("sheet")
@@ -110,7 +119,12 @@ async def main(out: Path, countdown: int):
         await page.wait_for_function(
             f"document.querySelectorAll('.msg.a').length > {n_answers} && !document.querySelector('.msg.pending')", timeout=240000)
         mark("answer")
-        await page.wait_for_timeout(7000)
+        log["answer_text"] = await page.locator(".msg.a").last.inner_text()
+        log["question_text"] = await page.locator(".msg.q").last.inner_text()
+        box = await page.locator(".col3 .surface").first.bounding_box()
+        log["chat_box"] = {k: v * 2 for k, v in box.items()}  # device_scale_factor 2
+        await page.wait_for_timeout(12000)
+        mark("answer_end")
 
         await page.evaluate("document.querySelector('#timeline').scrollIntoView({behavior:'smooth', block:'center'})")
         mark("deadlines")
