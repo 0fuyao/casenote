@@ -1,0 +1,10 @@
+.venv/
+models/
+data/
+scratch/
+logs_*.txt
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.claude/

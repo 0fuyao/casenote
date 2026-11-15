@@ -1,0 +1,10 @@
+mlx-vlm>=0.7.8
+huggingface_hub
+fastapi
+uvicorn[standard]
+python-multipart
+httpx
+pyobjc-framework-Vision
+pyobjc-framework-Quartz
+pillow
+reportlab
