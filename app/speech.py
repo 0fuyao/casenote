@@ -66,7 +66,8 @@ def speak_live(text: str, language: str = "english") -> None:
         _speaker.terminate()
     voice = "vivian" if language == "chinese" else "ryan"
     _speaker = subprocess.Popen([CLI, "tts", "--text", text, "--language", language, "--speaker", voice,
-                                 "--models-path", str(TTS_MODELS), "--tokenizer", str(TTS_TOKENIZER), "--play"],
+                                 "--models-path", str(TTS_MODELS), "--tokenizer", str(TTS_TOKENIZER), "--play",
+                                 "--output-path", str(Path(tempfile.gettempdir()) / "casenote_live")],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

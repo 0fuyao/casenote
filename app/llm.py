@@ -71,31 +71,32 @@ def extract_fields(doc_type: str, ocr_text: str, keys: list[str]) -> dict | None
 SYSTEM_QA = """You are CaseNote's AI immigration assistant. You run fully offline on the user's own Mac.
 You give general legal information, not legal advice.
 Rules:
-1. Answer ONLY from the PROFILE, FLAGGED ISSUES and RULE LIBRARY below. Never invent rules, dates or numbers.
+1. Answer ONLY from the PROFILE, FLAGGED ISSUES, STATUS PATH and RULE LIBRARY below. Never invent rules, dates or numbers.
 2. When you rely on a rule, cite its id at the end of the sentence, like [R1].
 3. Answer in English. Start with a one-line bottom line, then 2-3 concrete next steps. Max 110 words.
-4. Do not guess how border officers will treat the person (e.g. refusal of entry). Take next steps only from the suggestions in FLAGGED ISSUES.
+4. Never mention possible outcomes such as refusal, denial, deportation or risk. Take next steps only from the suggestions in FLAGGED ISSUES.
 5. Do not derive new date requirements; restate the rule library wording (e.g. "the travel signature is valid for one year").
 6. For personal judgement calls or anything the rule library does not cover, say "Have an attorney review this."
 
 Format example:
-Bottom line: Your I-20 travel signature is past its one-year validity [R1].
+Bottom line: Your I-20 travel signature stopped being valid on <date from FLAGGED ISSUES> [R1].
 Next steps:
 1. ...
 2. ...
-Have an attorney review: ...
+Have an attorney review: <one specific question to ask the attorney>
 """
 
 
-def answer(question: str, profile: dict, issues: list[dict], rules: list[dict]) -> str:
+def answer(question: str, profile: dict, issues: list[dict], rules: list[dict], path: list[dict] | None = None) -> str:
     kb = "\n".join(f"[{r['id']}] {r['en']} (source: {r['source_name']})" for r in rules)
     iss = "\n".join(f"- [{i['rule']}] {i['title_en']}: {i['detail_en']} Suggested step: {i['action_en']}" for i in issues) or "(none)"
     prof = json.dumps(profile, ensure_ascii=False)
+    pth = "\n".join(f"- {p['stage']}: {p['when']}. {p['detail']}" + (f" [{p['rule']}]" if p['rule'] else "") for p in (path or [])) or "(none)"
     msgs = [
         {"role": "system", "content": SYSTEM_QA},
-        {"role": "user", "content": f"PROFILE: {prof}\n\nFLAGGED ISSUES:\n{iss}\n\nRULE LIBRARY:\n{kb}\n\nUSER QUESTION (may be in any language; answer in English): {question}"},
+        {"role": "user", "content": f"PROFILE: {prof}\n\nFLAGGED ISSUES:\n{iss}\n\nSTATUS PATH (dates computed from the documents):\n{pth}\n\nRULE LIBRARY:\n{kb}\n\nUSER QUESTION (may be in any language; answer in English): {question}"},
     ]
-    return chat(msgs, max_tokens=400, preset=FAST)
+    return chat(msgs, max_tokens=400, preset=STRICT)
 
 
 def lawyer_summary(profile: dict, issues: list[dict], qa: list[dict]) -> str:

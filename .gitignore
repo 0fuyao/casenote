@@ -8,3 +8,6 @@ __pycache__/
 .DS_Store
 .env
 .claude/
+video/
+CaseNote_demo.mp4
+CaseNote_demo.srt

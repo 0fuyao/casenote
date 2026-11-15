@@ -26,7 +26,7 @@ LABELS = [
 ]
 
 
-def build(profile: dict, issues: list[dict], qa: list[dict], summary: str, return_date: date, consult: dict | None = None) -> bytes:
+def build(profile: dict, issues: list[dict], qa: list[dict], summary: str, return_date: date, consult: dict | None = None, path: list[dict] | None = None) -> bytes:
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=LETTER, leftMargin=0.8 * inch, rightMargin=0.8 * inch,
                             topMargin=0.7 * inch, bottomMargin=0.7 * inch, title="CaseNote case packet")
@@ -65,6 +65,16 @@ def build(profile: dict, issues: list[dict], qa: list[dict], summary: str, retur
     t = Table(rows, colWidths=[2.0 * inch, 4.8 * inch])
     t.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cccccc")), ("FONTSIZE", (0, 0), (-1, -1), 8.5)]))
     el.append(t)
+
+    if path:
+        el.append(Paragraph("Status path (dates computed from the documents; verify)", h))
+        rows = [["Stage", "When", "Notes"]] + [[Paragraph(p["stage"], body), Paragraph(p["when"], body),
+                 Paragraph(p["detail"] + (f" (Rule {p['rule']})" if p["rule"] else ""), body)] for p in path]
+        t = Table(rows, colWidths=[1.7 * inch, 2.0 * inch, 3.1 * inch], repeatRows=1)
+        t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eeeeee")),
+                               ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#bbbbbb")),
+                               ("VALIGN", (0, 0), (-1, -1), "TOP"), ("FONTSIZE", (0, 0), (-1, -1), 8.5)]))
+        el.append(t)
 
     if qa:
         el.append(Paragraph("Client questions (original language)", h))

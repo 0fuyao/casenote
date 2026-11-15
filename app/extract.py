@@ -109,7 +109,7 @@ SCHEMA = {
     "i20": {
         "sevis_id": (["sevis id"], "id"), "surname": (["surname primary name"], "name"),
         "given_names": (["given name"], "name"), "dob": (["date of birth"], "date"),
-        "school": (["school name"], "text"), "program_start": (["program start date"], "date"),
+        "school": (["school name"], "text"), "major": (["major"], "text"), "program_start": (["program start date"], "date"),
         "program_end": (["program end date"], "date"), "travel_signature_date": (["travel signature date"], "date"),
     },
     "i94": {

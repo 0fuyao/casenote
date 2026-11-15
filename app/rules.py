@@ -94,6 +94,7 @@ def build_profile(docs: dict) -> dict:
         "visa_expiry": g("visa", "expiry"),
         "sevis_id": g("i20", "sevis_id"),
         "school": g("i20", "school"),
+        "major": g("i20", "major"),
         "program_start": g("i20", "program_start"),
         "program_end": g("i20", "program_end"),
         "travel_signature_date": g("i20", "travel_signature_date"),
@@ -142,7 +143,7 @@ def check(docs: dict, return_date: date, today: date | None = None) -> list[dict
             issues.append(_issue("R1", "high",
                 "I-20 旅行签字已过期", "I-20 travel signature expired",
                 f"签字日期 {sig}，到计划入境日 {return_date.isoformat()} 已约 {months} 个月，超过一年有效期。",
-                f"Travel signature dated {sig} is about {months} months old on the planned return date {return_date.isoformat()}; it is valid for one year.",
+                f"Travel signature signed on {sig}; it stopped being valid on {limit.isoformat()}, before the planned return date {return_date.isoformat()} (valid for one year).",
                 [(sid, sbox)]))
 
     # R2 identity consistency across documents
@@ -271,3 +272,78 @@ def ics(events: list[dict]) -> str:
                   "END:VEVENT"]
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines) + "\r\n"
+
+
+# ---------- status path: F-1 -> CPT -> OPT -> STEM OPT -> H-1B -> green card ----------
+# Rule text below is checked against the cited official pages (see README "Rules").
+PATH_RULES = [
+    {"id": "R8", "zh": "CPT：一般须合法全日制就读满一个完整学年（要求更早实习的部分研究生项目除外），须是既定课程的组成部分，由 DSO 在 SEVIS 中批准并印在 I-20 上；累计一年全职 CPT（每周超过 20 小时）将失去 OPT 资格。",
+     "en": "CPT: generally needs one full academic year of lawful full-time enrollment (some graduate programs requiring earlier training are an exception); it must be an integral part of an established curriculum and is authorized by the DSO in SEVIS and printed on the I-20; one year of full-time CPT (more than 20 hours a week) eliminates OPT eligibility.",
+     "source_name": "Study in the States (DHS): F-1 Curricular Practical Training", "url": "https://studyinthestates.dhs.gov/sevis-help-hub/student-records/fm-student-employment/f-1-curricular-practical-training-cpt"},
+    {"id": "R9", "zh": "STEM OPT：学位在 DHS STEM 名单上的 OPT 学生可申请一次 24 个月延期；雇主须参加 E-Verify，DSO 推荐前需完成 I-983；I-765 最早在当前 OPT 卡到期前 90 天递交、不晚于 OPT 结束日，且须在 DSO 推荐后 60 天内送达 USCIS；宽限期内不能申请。",
+     "en": "STEM OPT: students on post-completion OPT with a degree on the DHS STEM list can get a one-time 24-month extension; the employer must use E-Verify and a Form I-983 is required before the DSO recommends it; file the I-765 up to 90 days before the current OPT card expires and no later than its end date, and USCIS must receive it within 60 days of the DSO recommendation; not during the grace period.",
+     "source_name": "USCIS: OPT Extension for STEM Students", "url": "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-extension-for-stem-students-stem-opt"},
+    {"id": "R10", "zh": "OPT 失业天数：毕业后 OPT 最多 90 天；STEM OPT 总计 150 天（包含此前已用的天数，即多 60 天）。",
+     "en": "OPT unemployment: post-completion OPT allows 90 days; STEM OPT allows 150 days in total, including days already used (60 more).",
+     "source_name": "Study in the States (DHS): Unemployment Counter", "url": "https://studyinthestates.dhs.gov/sevis-help-hub/student-records/fm-student-employment/unemployment-counter"},
+    {"id": "R11", "zh": "H-1B：雇主须先在 USCIS 每年公布的电子注册期注册（FY2027 为 2026 年 3 月 4 日至 19 日），中签后才能递交，工作开始日不早于 10 月 1 日；自 FY2027 起按工资级别加权抽签。及时递交的 H-1B 抽签申请可将 F-1 身份和 OPT 工作许可延至次年 4 月 1 日（cap-gap）。",
+     "en": "H-1B: the employer first registers during USCIS's annual registration period (FY2027 ran March 4 to 19, 2026); only selected registrations can be filed, with a start date of October 1 or later; selection is weighted by wage level from FY2027. A timely filed cap petition extends F-1 status and OPT work authorization to April 1 (cap-gap).",
+     "source_name": "USCIS: H-1B Cap Season", "url": "https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations/h-1b-cap-season"},
+    {"id": "R12", "zh": "绿卡：USCIS 列出的途径包括职业移民 EB-1、EB-2（含国家利益豁免）、EB-3，亲属移民等；适合哪条需律师评估。",
+     "en": "Green card: USCIS lists employment-based EB-1, EB-2 (including the National Interest Waiver) and EB-3, family-based and other categories; which one fits needs an attorney's assessment.",
+     "source_name": "USCIS: Green Card Eligibility Categories", "url": "https://www.uscis.gov/green-card/green-card-eligibility-categories"},
+]
+RULES.extend(PATH_RULES)
+RULES_BY_ID.update({r["id"]: r for r in PATH_RULES})
+
+STEM_HINTS = ("ENGINEERING", "COMPUTER", "MATHEMATIC", "STATISTIC", "PHYSICS", "CHEMISTRY", "BIOLOG",
+              "DATA SCIENCE", "INFORMATION SCIENCE", "ROBOTICS", "ACTUARIAL")
+
+
+def _add_months(d: date, m: int) -> date:
+    y, mo = divmod(d.month - 1 + m, 12)
+    day = min(d.day, [31, 29 if (d.year + y) % 4 == 0 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo])
+    return date(d.year + y, mo + 1, day)
+
+
+def path(profile: dict, today: date | None = None) -> list[dict]:
+    """The usual route from F-1 onward, with dates computed from this person's documents."""
+    today = today or date.today()
+    start, end = _d(profile.get("program_start")), _d(profile.get("program_end"))
+    if not (start and end):
+        return []
+    major = (profile.get("major") or "").upper()
+    stem = any(h in major for h in STEM_HINTS)
+
+    def st(a, b=None):
+        if b and a <= today <= b:
+            return "now"
+        return "done" if (b or a) < today else "later"
+
+    out = []
+    out.append({"stage": "F-1 student", "state": st(start, end),
+                "when": f"{start.isoformat()} to {end.isoformat()}",
+                "detail": f"Studying {(profile.get('major') or 'your program').title()} at {(profile.get('school') or 'your school').title()}.", "rule": None})
+    cpt_from = _add_months(start, 12)
+    if cpt_from < end:
+        out.append({"stage": "CPT (internships during school)", "state": "now" if cpt_from <= today < end else ("later" if today < cpt_from else "done"),
+                    "when": f"from about {cpt_from.isoformat()}" if today < cpt_from else "available now, with DSO authorization",
+                    "detail": "Each job needs DSO authorization on your I-20. One year of full-time CPT (over 20 hours a week) removes OPT eligibility.", "rule": "R8"})
+    opt_open, opt_close = end - timedelta(days=90), end + timedelta(days=60)
+    out.append({"stage": "OPT (12 months of work after graduation)", "state": st(opt_open, opt_close),
+                "when": f"file I-765 between {opt_open.isoformat()} and {opt_close.isoformat()}",
+                "detail": "Up to 90 days of unemployment are allowed during OPT [R10].", "rule": "R7"})
+    opt_end = _add_months(end, 12)  # approximate: the real dates are on the OPT card
+    if stem:
+        out.append({"stage": "STEM OPT extension (24 more months)", "state": st(opt_end - timedelta(days=90), opt_end),
+                    "when": f"apply from about {(opt_end - timedelta(days=90)).isoformat()} (90 days before the OPT card ends)",
+                    "detail": ("Electrical engineering (CIP 14.10) is on the DHS STEM list" if "ELECTRICAL" in major else f"{profile.get('major').title()} looks like a STEM field") + "; confirm the CIP code on your I-20. Employer must use E-Verify; needs Form I-983. Unemployment limit becomes 150 days.", "rule": "R9"})
+    last = _add_months(opt_end, 24) if stem else opt_end
+    years = [y for y in range(end.year, last.year + 1) if date(y, 3, 31) >= today and date(y, 3, 1) <= last]
+    if years:
+        out.append({"stage": "H-1B (employer-sponsored work visa)", "state": "later",
+                    "when": "registration in March " + ", ".join(str(y) for y in years[:3]) + (" (exact dates announced by USCIS)"),
+                    "detail": "Your employer registers you; selection is weighted by wage level. If selected and filed on time, cap-gap keeps your F-1 status and OPT work authorization until April 1; H-1B work starts October 1 or later.", "rule": "R11"})
+    out.append({"stage": "Green card (permanent residence)", "state": "info", "when": "talk to an attorney",
+                "detail": "Common routes: employer sponsorship (EB-2, EB-3), EB-2 National Interest Waiver, EB-1, or family. CaseNote can prepare the packet.", "rule": "R12"})
+    return out

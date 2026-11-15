@@ -114,6 +114,20 @@ button.doc:hover{background:var(--sunk)}
 .tl-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--hair);font-size:13px;color:var(--faint)}
 .textbtn{color:var(--link);font-size:14px;font-weight:500}
 
+/* path stepper */
+.path{list-style:none;margin:0;padding:8px 0}
+.path li{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr);gap:0 12px;padding:10px 20px 10px 20px}
+.path li::before{content:"";position:absolute;left:33px;top:30px;bottom:-10px;width:2px;background:var(--hair)}
+.path li:last-child::before{display:none}
+.path .pt{width:14px;height:14px;border-radius:50%;margin:4px 0 0 7px;border:2px solid var(--faint);background:var(--surface);position:relative;z-index:1}
+.path li.now .pt{background:var(--navy);border-color:var(--navy);box-shadow:0 0 0 4px rgba(26,68,128,.15)}
+.path li.done .pt{background:var(--faint);border-color:var(--faint)}
+.path li.info .pt{border-style:dashed}
+.path .st{font-weight:700;font-size:16px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.path .tag-now{font-size:12px;font-weight:600;color:var(--navy);background:rgba(26,68,128,.1);padding:1px 8px;border-radius:999px}
+.path .when{color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+.path .det{color:var(--muted);font-size:14px;margin-top:2px}
+
 /* profile */
 .kv{display:flex;justify-content:space-between;gap:16px;padding:9px 16px}
 .kv+.kv{border-top:1px solid var(--hair)}
@@ -249,6 +263,10 @@ dialog::backdrop{background:rgba(var(--shade),.35)}
         <div class="surface" id="issues"><div class="blank">Findings appear here after your documents are read.</div></div>
       </section>
       <section class="block">
+        <h2>Your path <small>F-1, CPT, OPT, H-1B, green card</small></h2>
+        <div class="surface" id="path"><div class="blank">Your route from F-1 onward appears here, with dates from your documents.</div></div>
+      </section>
+      <section class="block">
         <h2>Deadlines</h2>
         <div class="surface" id="timeline"><div class="blank">Key dates from your documents appear here.</div></div>
       </section>
@@ -308,10 +326,10 @@ const TYPE = {passport:"Passport", visa:"F-1 visa", i20:"Form I-20", i94:"Form I
 const FIELD = {surname:"Surname", given_names:"Given names", number:"Passport number", passport_number:"Passport number", dob:"Date of birth", expiry:"Expires",
   nationality:"Nationality", visa_class:"Visa class", annotation:"Annotation", sevis_id:"SEVIS ID", school:"School", program_start:"Program start",
   program_end:"Program end", travel_signature_date:"Travel signature", record_number:"I-94 number", entry_date:"Most recent entry",
-  class_of_admission:"Class of admission", admit_until:"Admit until"};
+  class_of_admission:"Class of admission", admit_until:"Admit until", major:"Major"};
 const MONO = new Set(["number","passport_number","sevis_id","record_number"]);
 const PROF = [["surname","Surname"],["given_names","Given names"],["dob","Date of birth"],["nationality","Nationality"],["passport_number","Passport number"],
-  ["passport_expiry","Passport expires"],["visa_class","Visa class"],["visa_expiry","Visa expires"],["sevis_id","SEVIS ID"],["school","School"],
+  ["passport_expiry","Passport expires"],["visa_class","Visa class"],["visa_expiry","Visa expires"],["sevis_id","SEVIS ID"],["school","School"],["major","Major"],
   ["program_end","Program end"],["travel_signature_date","I-20 travel signature"],["i94_class","I-94 class"],["i94_admit_until","I-94 admit until"]];
 const SRC = {mrz:"MRZ", bonsai:"Bonsai", ocr:"OCR"};
 const SRC_TITLE = {mrz:"Read from the machine-readable zone and verified by check digits", bonsai:"Read by Bonsai 9B from the OCR text", ocr:"Read directly from the OCR text"};
@@ -427,6 +445,15 @@ async function refresh(){
       <span class="r">${rel(e.days)}</span></li>`).join("") + `</ol>
       <div class="tl-foot"><span>Upcoming dates include a reminder 30 days ahead.</span><a class="textbtn" href="/api/calendar.ics?return_date=${$("#rd").value}" download>Add to Calendar</a></div>`
     : `<div class="blank">Key dates from your documents appear here.</div>`;
+
+  // path
+  const pathRows = c.path || [];
+  const niceWhen = w => w.replace(/\d{4}-\d{2}-\d{2}/g, m => fmtDate(m));
+  $("#path").innerHTML = pathRows.length ? `<ol class="path">` + pathRows.map(s => `<li class="${s.state}">
+      <span class="pt" aria-hidden="true"></span>
+      <div><div class="st">${esc(s.stage)}${s.state === "now" ? '<span class="tag-now">Now</span>' : ""}${s.rule ? ` <a class="cite" href="${rules[s.rule]?.url}" target="_blank" rel="noopener" title="${esc(rules[s.rule]?.en || "")}">${s.rule}</a>` : ""}</div>
+      <div class="when">${esc(niceWhen(s.when))}</div><div class="det">${fmtAnswer(s.detail)}</div></div></li>`).join("") + `</ol>`
+    : `<div class="blank">Your route from F-1 onward appears here, with dates from your documents.</div>`;
 
   // profile
   const p = c.profile;

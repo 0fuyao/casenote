@@ -9,9 +9,10 @@ Picture an international student on a 14-hour flight with no internet, two hours
 1. **Reads documents on-device.** Apple Vision OCR runs locally. Passport and visa MRZ lines are parsed and verified with ICAO 9303 check digits. **PrismML Bonsai 2 9B** reads the I-20 and I-94 into structured fields.
 2. **Cross-checks with deterministic rules.** Each rule cites an official DHS / ICE / CBP page. Each problem is highlighted at its exact location on the original document.
 3. **AI immigration assistant.** **Argmax WhisperKit** transcribes a spoken question (language auto-detected). **Bonsai 9B** answers only from the user's profile, the flagged issues and the rule library, with `[R#]` citations. **Argmax TTSKit** (Qwen3-TTS) reads the answer aloud.
-4. **Deadlines.** Key dates come from the documents: travel signature validity, visa and passport expiry, the OPT window and the grace period. Each is tied to its rule and can be exported to Apple Calendar as an `.ics` file with 30-day reminders.
-5. **Attorney meeting.** Record a consultation. **Argmax WhisperKit** transcribes it and **Argmax SpeakerKit** separates the speakers. **Bonsai 9B** writes fact-only notes.
-6. **Attorney hand-off.** One click builds an English PDF case packet: an AI intake summary, the flagged issues with sources and next steps, the profile, the client's Q&A, and the meeting transcript.
+4. **Your path.** A stepper from F-1 through CPT, OPT, STEM OPT, H-1B and green card options. Every date is computed from the user's own I-20, and every stage links to its official rule.
+5. **Deadlines.** Key dates come from the documents: travel signature validity, visa and passport expiry, the OPT window and the grace period. Each is tied to its rule and can be exported to Apple Calendar as an `.ics` file with 30-day reminders.
+6. **Attorney meeting.** Record a consultation. **Argmax WhisperKit** transcribes it and **Argmax SpeakerKit** separates the speakers. **Bonsai 9B** writes fact-only notes.
+7. **Attorney hand-off.** One click builds an English PDF case packet: an AI intake summary, the flagged issues with sources and next steps, the profile, the client's Q&A, and the meeting transcript.
 
 The demo uses four **SPECIMEN** documents with fictional data (`tools/make_specimens.py`). Two problems are planted: an I-20 travel signature that is 14 months old, and an I-94 with the surname and given name swapped.
 
@@ -41,6 +42,11 @@ Design principle: **deterministic where possible, AI where needed.** MRZ check d
 | R5 | Passport valid 6 months past re-entry; China is not on the Six-Month Club list | [ICE SEVP: Travel](https://www.ice.gov/sevis/travel) |
 | R6 | 60-day grace period after program end (30 days under the new rule) | [Study in the States: Maintaining Status](https://studyinthestates.dhs.gov/students/maintaining-status) |
 | R7 | OPT I-765 window: 90 days before to 60 days after program end | [Study in the States: Practical Training](https://studyinthestates.dhs.gov/students/work/applying-for-practical-training) |
+| R8 | CPT after one academic year, DSO-authorized; one year of full-time CPT ends OPT eligibility | [Study in the States: F-1 CPT](https://studyinthestates.dhs.gov/sevis-help-hub/student-records/fm-student-employment/f-1-curricular-practical-training-cpt) |
+| R9 | STEM OPT: 24-month extension, E-Verify employer, I-983, file up to 90 days before OPT ends | [USCIS: STEM OPT](https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors/optional-practical-training-extension-for-stem-students-stem-opt) |
+| R10 | OPT unemployment: 90 days; 150 days in total on STEM OPT | [Study in the States: Unemployment Counter](https://studyinthestates.dhs.gov/sevis-help-hub/student-records/fm-student-employment/unemployment-counter) |
+| R11 | H-1B: annual registration (weighted by wage level from FY2027), Oct 1 start, cap-gap to April 1 | [USCIS: H-1B Cap Season](https://www.uscis.gov/working-in-the-united-states/temporary-workers/h-1b-specialty-occupations/h-1b-cap-season) |
+| R12 | Green card categories: EB-1, EB-2 (incl. NIW), EB-3, family-based | [USCIS: Green Card Eligibility Categories](https://www.uscis.gov/green-card/green-card-eligibility-categories) |
 
 ## Run it
 

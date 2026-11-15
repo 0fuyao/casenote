@@ -126,7 +126,8 @@ def case(return_date: str | None = None):
     docs = STATE["docs"]
     profile = rules.build_profile(docs)
     return {"return_date": rd.isoformat(), "profile": profile, "issues": rules.check(docs, rd),
-            "timeline": rules.timeline(profile, rd) if docs else [], "rules": rules.RULES}
+            "timeline": rules.timeline(profile, rd) if docs else [], "path": rules.path(profile),
+            "rules": rules.RULES}
 
 
 @app.get("/api/calendar.ics")
@@ -174,11 +175,16 @@ async def ask(audio: UploadFile | None = File(None), text: str | None = Form(Non
     rd = _return_date(return_date)
     docs = STATE["docs"]
     profile, issues = rules.build_profile(docs), rules.check(docs, rd)
-    answer = await asyncio.to_thread(llm.answer, question, profile, issues, rules.RULES)
+    answer = await asyncio.to_thread(llm.answer, question, profile, issues, rules.RULES, rules.path(profile))
     cited = sorted(set(re.findall(r"\[(R\d+)\]", answer)))
-    if not cited and issues:  # model forgot to cite: attach the rules behind the flagged issues
-        cited = sorted({i["rule"] for i in issues})
-        answer += "\n\nBasis: " + " ".join(f"[{c}]" for c in cited)
+    if not cited:  # model forgot to cite: attach the rules for the topics discussed
+        text = (question + " " + answer).lower()
+        topics = [("cpt", "R8"), ("curricular", "R8"), ("stem", "R9"), ("unemploy", "R10"), ("h-1b", "R11"), ("h1b", "R11"),
+                  ("lottery", "R11"), ("green card", "R12"), ("permanent", "R12"), ("opt", "R7"), ("travel signature", "R1"),
+                  ("i-94", "R2"), ("visa", "R4"), ("passport", "R5"), ("grace", "R6")]
+        cited = sorted({r for k, r in topics if k in text}, key=lambda r: int(r[1:])) or sorted({i["rule"] for i in issues})
+        if cited:
+            answer += "\n\nBasis: " + " ".join(f"[{c}]" for c in cited)
     item = {"q": question, "a": answer, "cited": cited}
     STATE["qa"].append(item)
     return item
@@ -211,7 +217,7 @@ async def make_packet(return_date: str | None = Form(None)):
         summary = await asyncio.to_thread(llm.lawyer_summary, profile, issues, STATE["qa"])
     except Exception:
         summary = "- Summary unavailable (local model offline); see flagged issues below."
-    pdf = packet.build(profile, issues, STATE["qa"], summary, rd, STATE.get("consult"))
+    pdf = packet.build(profile, issues, STATE["qa"], summary, rd, STATE.get("consult"), rules.path(profile))
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": 'attachment; filename="CaseNote_case_packet.pdf"'})
 
